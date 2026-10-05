@@ -6,8 +6,8 @@
 # (CreateProcessW resolves it against herdr's own directory, not the plugin
 # root or --cwd). So instead of `herdr plugin pane open` (which spawns the
 # manifest's pane command), we use `herdr pane split` + `herdr pane run` with
-# an absolute path to git-bash.cmd + the script. This is the same pattern used
-# by herdr-file-viewer (see its scripts/open-file-viewer.ps1).
+# an absolute path to the script. This is the same pattern used by
+# herdr-file-viewer (see its scripts/open-file-viewer.ps1).
 #
 # Plugin panes default their cwd to the plugin root, so the workspace's repo
 # (from the injected context JSON) has to be passed explicitly. Otherwise `wt`
@@ -45,18 +45,6 @@ case "$entrypoint" in
   merger-no-squash)    label="Worktrunk — merge (no squash)" ;;
 esac
 
-# Build the pane command: git-bash.cmd <script> [args...]
-# git-bash.cmd is in the plugin root (next to this script).
-git_bash_cmd="$plugin_root/git-bash.cmd"
-if [[ ! -f "$git_bash_cmd" ]]; then
-  printf '\033[31m%s\033[0m\n' "git-bash.cmd not found at $git_bash_cmd" >&2
-  exit 1
-fi
-
-# Convert plugin_root to a Windows path for cmd.exe / git-bash.cmd.
-# MSYS_NO_PATHCONV=1 prevents MSYS from mangling the path.
-export MSYS_NO_PATHCONV=1
-
 # herdr pane split creates a new pane. --cwd sets the working directory.
 # --env passes HERDR_PLUGIN_ROOT and other vars the pane script needs.
 split_args=(pane split --current --direction down --cwd "$cwd" --focus)
@@ -90,7 +78,8 @@ fi
 # Rename the pane.
 "$herdr" pane rename "$pane_id" "$label" >/dev/null 2>&1
 
-# Run the script in the pane. herdr pane run takes an absolute command.
-# On Windows, git-bash.cmd is a batch file — cmd.exe runs it.
-# On macOS/Linux, git-bash.cmd doesn't exist, but this fork is Windows-only.
-"$herdr" pane run "$pane_id" "$git_bash_cmd" "${script[@]}"
+# Run the script in the pane. herdr pane run sends the command as text to the
+# pane's shell (Git Bash on Windows). Use bash with the absolute script path.
+# The pane inherits HERDR_PLUGIN_ROOT and other env vars from pane split --env
+# above, so the script can source config.sh and helpers.sh from the plugin root.
+"$herdr" pane run "$pane_id" bash "${script[@]}"
