@@ -59,40 +59,47 @@ title = "Worktree: merge into the target branch, keeping every commit"
 contexts = ["workspace"]
 command = ["git-bash.cmd", "open.sh", "merger-no-squash"]
 
+# Pane commands use cmd.exe /d /c to invoke git-bash.cmd because Herdr's pane
+# launcher (unlike action commands) does not resolve .cmd files via cmd.exe
+# automatically. Action commands resolve PATHEXT shims, but pane commands use
+# CommandBuilder::new(program) directly, which cannot exec .cmd files without
+# cmd.exe. See Herdr's windows_plugin_pane_commands_resolve_from_plugin_root
+# test: pane commands use ["cmd.exe", "/d", "/c", "slot.cmd", ...].
+
 # Both panes run as plain bash. Depending on plugin config, picker.sh opens the
 # checkout in a tab or registers it as a native herdr worktree workspace.
 [[panes]]
 id = "picker-default"
 title = "Worktrunk — default branch"
 placement = "split"
-command = ["git-bash.cmd", "picker.sh", "--create-base=default"]
+command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "picker.sh", "--create-base=default"]
 
 [[panes]]
 id = "picker-current"
 title = "Worktrunk — current branch"
 placement = "split"
-command = ["git-bash.cmd", "picker.sh", "--create-base=current"]
+command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "picker.sh", "--create-base=current"]
 
 [[panes]]
 id = "picker-with-remotes"
 title = "Worktrunk — local and remote branches"
 placement = "split"
-command = ["git-bash.cmd", "picker.sh", "--show-with-remotes"]
+command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "picker.sh", "--show-with-remotes"]
 
 [[panes]]
 id = "remover"
 title = "Worktrunk — remove"
 placement = "split"
-command = ["git-bash.cmd", "remove.sh"]
+command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "remove.sh"]
 
 [[panes]]
 id = "merger"
 title = "Worktrunk — merge"
 placement = "split"
-command = ["git-bash.cmd", "merge.sh"]
+command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "merge.sh"]
 
 [[panes]]
 id = "merger-no-squash"
 title = "Worktrunk — merge (no squash)"
 placement = "split"
-command = ["git-bash.cmd", "merge.sh", "--no-squash"]
+command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "merge.sh", "--no-squash"]
