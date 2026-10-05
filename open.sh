@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Shared entrypoint for the plugin's workspace actions. Resolves the repo to run
-# in, then opens ENTRYPOINT with the configured picker placement.
+# in, then opens a pane running the entrypoint's script.
 #
-# Plugin panes default their cwd to the plugin root, so the workspace's repo (from
-# the injected context JSON) has to be passed explicitly. Otherwise `wt` runs in
-# the plugin dir, not the repo you're in.
+# On Windows, herdr cannot spawn a relative pane command from a [[panes]] entry
+# (CreateProcessW resolves it against herdr's own directory, not the plugin
+# root or --cwd). So instead of `herdr plugin pane open` (which spawns the
+# manifest's pane command), we use `herdr pane split` + `herdr pane run` with
+# an absolute path to git-bash.cmd + the script. This is the same pattern used
+# by herdr-file-viewer (see its scripts/open-file-viewer.ps1).
+#
+# Plugin panes default their cwd to the plugin root, so the workspace's repo
+# (from the injected context JSON) has to be passed explicitly. Otherwise `wt`
+# runs in the plugin dir, not the repo you're in.
 
 entrypoint=${1:?usage: open.sh <entrypoint>}
 
@@ -15,26 +22,72 @@ source "$plugin_root/config.sh"
 cwd=$(jq -r '.workspace_cwd // .focused_pane_cwd' <<<"$HERDR_PLUGIN_CONTEXT_JSON" | tr -d '\r')
 herdr=${HERDR_BIN_PATH:-herdr}
 
-args=(plugin pane open
-  --plugin "${HERDR_PLUGIN_ID:-worktrunk}"
-  --entrypoint "$entrypoint"
-  --cwd "$cwd"
-  --focus)
+# Map entrypoint id to script + args.
+case "$entrypoint" in
+  picker-default)      script=(picker.sh --create-base=default) ;;
+  picker-current)      script=(picker.sh --create-base=current) ;;
+  picker-with-remotes) script=(picker.sh --show-with-remotes) ;;
+  remover)             script=(remove.sh) ;;
+  merger)              script=(merge.sh) ;;
+  merger-no-squash)    script=(merge.sh --no-squash) ;;
+  *) printf '\033[31m%s\033[0m\n' "Unknown entrypoint: $entrypoint" >&2; exit 1 ;;
+esac
 
-if [[ $(worktrunk_picker_placement) == popup ]]; then
-  args+=(--placement popup)
+# Label for the pane.
+case "$entrypoint" in
+  picker-default)      label="Worktrunk — default branch" ;;
+  picker-current)      label="Worktrunk — current branch" ;;
+  picker-with-remotes) label="Worktrunk — local and remote branches" ;;
+  remover)             label="Worktrunk — remove" ;;
+  merger)              label="Worktrunk — merge" ;;
+  merger-no-squash)    label="Worktrunk — merge (no squash)" ;;
+esac
 
-  width=$(worktrunk_popup_dimension popup_width)
-  height=$(worktrunk_popup_dimension popup_height)
-  [[ -n $width ]] && args+=(--width "$width")
-  [[ -n $height ]] && args+=(--height "$height")
-
-  # A popup is session-modal and belongs to no pane, so herdr injects none of
-  # HERDR_WORKSPACE_ID/HERDR_TAB_ID/HERDR_PANE_ID into it. The picker opens the
-  # checkout in a workspace, so hand it the one the action was invoked from.
-  [[ -n ${HERDR_WORKSPACE_ID:-} ]] && args+=(--env "HERDR_WORKSPACE_ID=$HERDR_WORKSPACE_ID")
-else
-  args+=(--placement split --direction down)
+# Build the pane command: git-bash.cmd <script> [args...]
+# git-bash.cmd is in the plugin root (next to this script).
+git_bash_cmd="$plugin_root/git-bash.cmd"
+if [[ ! -f "$git_bash_cmd" ]]; then
+  printf '\033[31m%s\033[0m\n' "git-bash.cmd not found at $git_bash_cmd" >&2
+  exit 1
 fi
 
-exec "$herdr" "${args[@]}"
+# Convert plugin_root to a Windows path for cmd.exe / git-bash.cmd.
+# MSYS_NO_PATHCONV=1 prevents MSYS from mangling the path.
+export MSYS_NO_PATHCONV=1
+
+# herdr pane split creates a new pane. --cwd sets the working directory.
+# --env passes HERDR_PLUGIN_ROOT and other vars the pane script needs.
+split_args=(pane split --current --direction down --cwd "$cwd" --focus)
+[[ -n ${HERDR_WORKSPACE_ID:-} ]] && split_args+=(--env "HERDR_WORKSPACE_ID=$HERDR_WORKSPACE_ID")
+split_args+=(--env "HERDR_PLUGIN_ROOT=$plugin_root")
+split_args+=(--env "HERDR_PLUGIN_ID=${HERDR_PLUGIN_ID:-worktrunk}")
+split_args+=(--env "HERDR_BIN_PATH=$herdr")
+split_args+=(--env "HERDR_PLUGIN_ENTRYPOINT_ID=$entrypoint")
+[[ -n ${HERDR_TAB_ID:-} ]] && split_args+=(--env "HERDR_TAB_ID=$HERDR_TAB_ID")
+[[ -n ${HERDR_PANE_ID:-} ]] && split_args+=(--env "HERDR_PANE_ID=$HERDR_PANE_ID")
+
+# Context JSON: pass it through so the pane script can read workspace_cwd etc.
+if [[ -n ${HERDR_PLUGIN_CONTEXT_JSON:-} ]]; then
+  split_args+=(--env "HERDR_PLUGIN_CONTEXT_JSON=$HERDR_PLUGIN_CONTEXT_JSON")
+fi
+
+split_json=$("$herdr" "${split_args[@]}" 2>&1)
+if [[ $? -ne 0 ]]; then
+  printf '\033[31m%s\033[0m\n' "herdr pane split failed: $split_json" >&2
+  exit 1
+fi
+
+# Extract the new pane id from the JSON reply.
+pane_id=$(printf '%s\n' "$split_json" | jq -r '.result.pane_id // .pane_id // empty' | tr -d '\r')
+if [[ -z $pane_id ]]; then
+  printf '\033[31m%s\033[0m\n' "could not find pane_id in: $split_json" >&2
+  exit 1
+fi
+
+# Rename the pane.
+"$herdr" pane rename "$pane_id" "$label" >/dev/null 2>&1
+
+# Run the script in the pane. herdr pane run takes an absolute command.
+# On Windows, git-bash.cmd is a batch file — cmd.exe runs it.
+# On macOS/Linux, git-bash.cmd doesn't exist, but this fork is Windows-only.
+"$herdr" pane run "$pane_id" "$git_bash_cmd" "${script[@]}"

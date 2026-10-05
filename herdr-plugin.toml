@@ -18,11 +18,16 @@ platforms = ["windows"]
 # is on PATH.
 #
 # Herdr resolves "git-bash.cmd" relative to HERDR_PLUGIN_ROOT (the plugin
-# directory) and runs it via cmd.exe /d /c. Herdr requires unique action/pane
-# ids, so each entry uses a single git-bash.cmd command.
+# directory) for action commands and runs it via cmd.exe /d /c.
+#
+# There are NO [[panes]] entries: herdr cannot spawn a relative pane command on
+# Windows (CreateProcessW resolves it against herdr's own directory, not the
+# plugin root or --cwd). Instead, open.sh uses `herdr pane split` + `herdr pane
+# run` with an absolute path to git-bash.cmd + the script. This is the same
+# pattern used by herdr-file-viewer (see its scripts/open-file-viewer.ps1).
 
-# Workspace actions: open.sh resolves the workspace's repo and the configured
-# picker placement, then opens the entrypoint named here.
+# Workspace actions: open.sh resolves the workspace's repo, splits a pane,
+# and runs the entrypoint's script (picker.sh, remove.sh, merge.sh) in it.
 [[actions]]
 id = "open"
 title = "Worktree: switch / create from default branch"
@@ -58,53 +63,3 @@ id = "merge-no-squash"
 title = "Worktree: merge into the target branch, keeping every commit"
 contexts = ["workspace"]
 command = ["git-bash.cmd", "open.sh", "merger-no-squash"]
-
-# Pane commands use cmd.exe /d /c to invoke git-bash.cmd because Herdr's pane
-# launcher (unlike action commands) does not resolve .cmd files via cmd.exe
-# automatically. Action commands resolve PATHEXT shims, but pane commands use
-# CommandBuilder::new(program) directly, which cannot exec .cmd files without
-# cmd.exe. See Herdr's windows_plugin_pane_commands_resolve_from_plugin_root
-# test: pane commands use ["cmd.exe", "/d", "/c", "slot.cmd", ...].
-#
-# The pane cwd is the workspace repo (set by open.sh --cwd), not the plugin
-# root, so cmd.exe cannot find git-bash.cmd by bare name. Use
-# %HERDR_PLUGIN_ROOT%\git-bash.cmd so cmd.exe resolves the full path. Herdr
-# sets HERDR_PLUGIN_ROOT for pane commands via plugin_path_env.
-
-# Both panes run as plain bash. Depending on plugin config, picker.sh opens the
-# checkout in a tab or registers it as a native herdr worktree workspace.
-[[panes]]
-id = "picker-default"
-title = "Worktrunk — default branch"
-placement = "split"
-command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "picker.sh", "--create-base=default"]
-
-[[panes]]
-id = "picker-current"
-title = "Worktrunk — current branch"
-placement = "split"
-command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "picker.sh", "--create-base=current"]
-
-[[panes]]
-id = "picker-with-remotes"
-title = "Worktrunk — local and remote branches"
-placement = "split"
-command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "picker.sh", "--show-with-remotes"]
-
-[[panes]]
-id = "remover"
-title = "Worktrunk — remove"
-placement = "split"
-command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "remove.sh"]
-
-[[panes]]
-id = "merger"
-title = "Worktrunk — merge"
-placement = "split"
-command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "merge.sh"]
-
-[[panes]]
-id = "merger-no-squash"
-title = "Worktrunk — merge (no squash)"
-placement = "split"
-command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "merge.sh", "--no-squash"]
