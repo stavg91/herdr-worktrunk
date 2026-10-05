@@ -9,8 +9,8 @@ REM they are listed in WSLENV. Git Bash (C:\Program Files\Git\usr\bin\bash.exe)
 REM inherits them natively. This wrapper finds Git Bash and execs the script with it.
 REM
 REM --login makes bash source /etc/profile, which adds /usr/bin (dirname, mkdir, tr,
-REM jq, fzf, etc.) to PATH. Without --login, bash starts with only the inherited
-REM Windows PATH and coreutils are not found.
+REM jq, fzf, herdr, etc.) to PATH. Without --login, bash starts with only the
+REM inherited Windows PATH and coreutils are not found.
 REM
 REM Search order: RUNTIME_GIT_BASH env var, then common install locations, then PATH.
 
