@@ -78,7 +78,8 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Extract the new pane id from the JSON reply.
-pane_id=$(printf '%s\n' "$split_json" | jq -r '.result.pane_id // .pane_id // empty' | tr -d '\r')
+# herdr pane split returns {"result":{"pane":{"pane_id":"...",...}}}
+pane_id=$(printf '%s\n' "$split_json" | jq -r '.result.pane.pane_id // .pane.pane_id // .pane_id // empty' | tr -d '\r')
 if [[ -z $pane_id ]]; then
   printf '\033[31m%s\033[0m\n' "could not find pane_id in: $split_json" >&2
   exit 1
