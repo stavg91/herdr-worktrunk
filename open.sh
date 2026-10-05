@@ -25,13 +25,18 @@ herdr=${HERDR_BIN_PATH:-herdr}
 # Map entrypoint id to script + args. Use absolute paths so the pane script
 # is found regardless of cwd (the pane cwd is the workspace repo, not the
 # plugin root).
+# Convert plugin_root to forward slashes. herdr pane run sends the command
+# as text to the pane's shell (Git Bash), which treats backslashes as escape
+# characters. Forward slashes work on Windows in Git Bash.
+plugin_root_fwd=${plugin_root//\\//}
+
 case "$entrypoint" in
-  picker-default)      script=("$plugin_root/picker.sh" --create-base=default) ;;
-  picker-current)      script=("$plugin_root/picker.sh" --create-base=current) ;;
-  picker-with-remotes) script=("$plugin_root/picker.sh" --show-with-remotes) ;;
-  remover)             script=("$plugin_root/remove.sh") ;;
-  merger)              script=("$plugin_root/merge.sh") ;;
-  merger-no-squash)    script=("$plugin_root/merge.sh" --no-squash) ;;
+  picker-default)      script=("$plugin_root_fwd/picker.sh" --create-base=default) ;;
+  picker-current)      script=("$plugin_root_fwd/picker.sh" --create-base=current) ;;
+  picker-with-remotes) script=("$plugin_root_fwd/picker.sh" --show-with-remotes) ;;
+  remover)             script=("$plugin_root_fwd/remove.sh") ;;
+  merger)              script=("$plugin_root_fwd/merge.sh") ;;
+  merger-no-squash)    script=("$plugin_root_fwd/merge.sh" --no-squash) ;;
   *) printf '\033[31m%s\033[0m\n' "Unknown entrypoint: $entrypoint" >&2; exit 1 ;;
 esac
 
