@@ -22,14 +22,16 @@ source "$plugin_root/config.sh"
 cwd=$(jq -r '.workspace_cwd // .focused_pane_cwd' <<<"$HERDR_PLUGIN_CONTEXT_JSON" | tr -d '\r')
 herdr=${HERDR_BIN_PATH:-herdr}
 
-# Map entrypoint id to script + args.
+# Map entrypoint id to script + args. Use absolute paths so the pane script
+# is found regardless of cwd (the pane cwd is the workspace repo, not the
+# plugin root).
 case "$entrypoint" in
-  picker-default)      script=(picker.sh --create-base=default) ;;
-  picker-current)      script=(picker.sh --create-base=current) ;;
-  picker-with-remotes) script=(picker.sh --show-with-remotes) ;;
-  remover)             script=(remove.sh) ;;
-  merger)              script=(merge.sh) ;;
-  merger-no-squash)    script=(merge.sh --no-squash) ;;
+  picker-default)      script=("$plugin_root/picker.sh" --create-base=default) ;;
+  picker-current)      script=("$plugin_root/picker.sh" --create-base=current) ;;
+  picker-with-remotes) script=("$plugin_root/picker.sh" --show-with-remotes) ;;
+  remover)             script=("$plugin_root/remove.sh") ;;
+  merger)              script=("$plugin_root/merge.sh") ;;
+  merger-no-squash)    script=("$plugin_root/merge.sh" --no-squash) ;;
   *) printf '\033[31m%s\033[0m\n' "Unknown entrypoint: $entrypoint" >&2; exit 1 ;;
 esac
 
