@@ -65,6 +65,11 @@ command = ["git-bash.cmd", "open.sh", "merger-no-squash"]
 # CommandBuilder::new(program) directly, which cannot exec .cmd files without
 # cmd.exe. See Herdr's windows_plugin_pane_commands_resolve_from_plugin_root
 # test: pane commands use ["cmd.exe", "/d", "/c", "slot.cmd", ...].
+#
+# The pane cwd is the workspace repo (set by open.sh --cwd), not the plugin
+# root, so cmd.exe cannot find git-bash.cmd by bare name. Use
+# %HERDR_PLUGIN_ROOT%\git-bash.cmd so cmd.exe resolves the full path. Herdr
+# sets HERDR_PLUGIN_ROOT for pane commands via plugin_path_env.
 
 # Both panes run as plain bash. Depending on plugin config, picker.sh opens the
 # checkout in a tab or registers it as a native herdr worktree workspace.
@@ -72,34 +77,34 @@ command = ["git-bash.cmd", "open.sh", "merger-no-squash"]
 id = "picker-default"
 title = "Worktrunk — default branch"
 placement = "split"
-command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "picker.sh", "--create-base=default"]
+command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "picker.sh", "--create-base=default"]
 
 [[panes]]
 id = "picker-current"
 title = "Worktrunk — current branch"
 placement = "split"
-command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "picker.sh", "--create-base=current"]
+command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "picker.sh", "--create-base=current"]
 
 [[panes]]
 id = "picker-with-remotes"
 title = "Worktrunk — local and remote branches"
 placement = "split"
-command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "picker.sh", "--show-with-remotes"]
+command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "picker.sh", "--show-with-remotes"]
 
 [[panes]]
 id = "remover"
 title = "Worktrunk — remove"
 placement = "split"
-command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "remove.sh"]
+command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "remove.sh"]
 
 [[panes]]
 id = "merger"
 title = "Worktrunk — merge"
 placement = "split"
-command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "merge.sh"]
+command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "merge.sh"]
 
 [[panes]]
 id = "merger-no-squash"
 title = "Worktrunk — merge (no squash)"
 placement = "split"
-command = ["cmd.exe", "/d", "/c", "git-bash.cmd", "merge.sh", "--no-squash"]
+command = ["cmd.exe", "/d", "/c", "%HERDR_PLUGIN_ROOT%\\git-bash.cmd", "merge.sh", "--no-squash"]
