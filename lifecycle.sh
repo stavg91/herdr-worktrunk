@@ -10,7 +10,7 @@
 worktrunk_worktree_items() {
   local wtjson
 
-  if ! wtjson=$(wt list --format=json 2>/dev/null); then
+  if ! wtjson=$("$(worktrunk_bin)" list --format=json 2>/dev/null); then
     printf '\033[31m%s\033[0m\n' "failed to list worktrees" >&2
     sleep 2
     return 1
@@ -28,12 +28,12 @@ worktrunk_worktree_items() {
 # be removed, and it's the merge target rather than a merge source). The current
 # worktree IS included — worktrunk switches you back to the root repo.
 worktrunk_worktree_branches() {
-  jq -r 'select(.kind == "worktree" and .branch != null and .is_main != true) | .branch'
+  jq -r 'select(.kind == "worktree" and .branch != null and .is_main != true) | .branch' | tr -d '\r'
 }
 
 # Print the path of the worktree checked out at BRANCH, reading items on stdin.
 worktrunk_worktree_path() {
-  jq -r --arg b "$1" 'select(.kind == "worktree" and .branch == $b) | .path'
+  jq -r --arg b "$1" 'select(.kind == "worktree" and .branch == $b) | .path' | tr -d '\r'
 }
 
 # Print the path of the main worktree, reading items on stdin. `wt remove` runs from
@@ -41,7 +41,7 @@ worktrunk_worktree_path() {
 # shell back to the main one, and a plain bash pane has no shell integration for
 # that, so it would warn about it on every such removal.
 worktrunk_main_worktree_path() {
-  jq -r 'select(.kind == "worktree" and .is_main == true) | .path' | head -n1
+  jq -r 'select(.kind == "worktree" and .is_main == true) | .path' | head -n1 | tr -d '\r'
 }
 
 # Print the id of the native herdr workspace open on the worktree at PATH, or
@@ -51,7 +51,7 @@ worktrunk_open_workspace_id() {
   "${HERDR_BIN_PATH:-herdr}" worktree list --cwd "$PWD" --json 2>/dev/null \
     | jq -r --arg p "$1" \
         '.result.worktrees[] | select(.path == $p) | .open_workspace_id // empty' \
-    | head -n1
+    | head -n1 | tr -d '\r'
 }
 
 # fzf over the branches on stdin with PROMPT and HEADER, in the chrome that suits
@@ -75,6 +75,7 @@ worktrunk_close_worktree_ui() {
       | jq -r --arg p "$wtpath" --arg self "${HERDR_PANE_ID:-}" \
           '.result.panes[] | select(.pane_id != $self)
            | select(.cwd == $p or (.cwd | startswith($p + "/"))) | .pane_id' \
+      | tr -d '\r' \
       | while read -r pid; do "$herdr" pane close "$pid"; done
   fi
 }

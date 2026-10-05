@@ -1,0 +1,7 @@
+# herdr runs shell scripts via bash on Windows, where core.autocrlf=true converts
+# LF to CRLF on checkout. CRLF breaks bash: 'set: pipefail: invalid option name'
+# and '$'\r': command not found' at function definitions. Pin LF so the
+# working-tree files match the upstream bytes regardless of autocrlf.
+*.sh   text eol=lf
+*.cmd  text eol=crlf
+*.toml text eol=lf

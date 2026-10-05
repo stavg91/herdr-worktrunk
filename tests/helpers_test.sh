@@ -107,7 +107,8 @@ ready|branch|null|false'
 for list_json in "$schema_one" "$schema_two"; do
   actual_items=$(printf '%s\n' "$list_json" \
     | worktrunk_list_items \
-    | jq -r '[.branch, .kind, (.path | tostring), (.is_main | tostring)] | join("|")')
+    | jq -r '[.branch, .kind, (.path | tostring), (.is_main | tostring)] | join("|")' \
+    | tr -d '\r')
   if [[ $actual_items != "$expected_items" ]]; then
     printf 'unexpected normalized worktrunk list items:\n%s\n' "$actual_items" >&2
     exit 1
@@ -231,7 +232,11 @@ assert_eq fish "$(pane_shell "$fish_json" 0 /bin/zsh)" 'pane shell'
 # A startup child holding the foreground is not the shell: the shell pid is looked
 # up instead (this test's own bash stands in for it).
 child_json='{"result":{"process_info":{"shell_pid":'"$$"',"foreground_processes":[{"pid":999999,"name":"starship"}]}}}'
-assert_eq bash "$(pane_shell "$child_json" 0 /opt/homebrew/bin/nu)" 'pane shell'
+if ps -o comm= -p "$$" >/dev/null 2>&1; then
+  assert_eq bash "$(pane_shell "$child_json" 0 /opt/homebrew/bin/nu)" 'pane shell'
+else
+  echo "skip - pane shell ps -o comm= fallback (ps has no -o on MSYS/Git-Bash)"
+fi
 
 # Herdr not answering falls back to $SHELL after a few tries, then to nothing.
 assert_eq fish "$(pane_shell '' 99 /usr/local/bin/fish)" 'pane shell'

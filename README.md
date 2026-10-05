@@ -202,12 +202,32 @@ popup does not need, so the list fills the popup frame herdr already draws.
 ## Requirements
 
 - [**herdr**](https://herdr.dev) ≥ 0.7.0
-- [**worktrunk**](https://github.com/max-sixty/worktrunk) ≥ 0.60.0 — the `wt` CLI on your `PATH`
+- [**worktrunk**](https://github.com/max-sixty/worktrunk) ≥ 0.60.0 — the `wt` CLI
 - **fzf** — the interactive picker
 - **jq** — JSON parsing
-- **bash** — the scripts run with `/bin/bash`
+- **bash** — the scripts run with `/bin/bash` (on Windows, Git Bash is used automatically)
 
-Platforms: macOS and Linux.
+Platforms: macOS, Linux, and Windows.
+
+### Windows notes
+
+On Windows, bare `wt` on PATH resolves to the Windows Terminal app-execution
+alias (`wt.exe` in `WindowsApps`), which shadows the real worktrunk binary. The
+plugin resolves the real `wt` automatically: it checks `RUNTIME_WORKTRUNK_BIN`,
+then known install locations (winget, `WinGet Links`, `Program Files`, Homebrew,
+`cargo`), then `wt` on PATH (verifying it's worktrunk, not Windows Terminal,
+with `--version`). Set `RUNTIME_WORKTRUNK_BIN` to pin a specific binary if needed.
+
+On Windows, Herdr launches each script via `git-bash.cmd` (Git Bash) instead of
+`bash` (WSL). WSL bash does not inherit Windows process environment variables
+unless they are listed in `WSLENV`, so it never sees `HERDR_PLUGIN_ROOT`,
+`HERDR_PLUGIN_CONTEXT_JSON`, or `HERDR_WORKSPACE_ID`. Git Bash inherits them
+natively. The `git-bash.cmd` wrapper finds Git Bash at common install locations
+or via `RUNTIME_GIT_BASH`.
+
+The plugin also sets `MSYS_NO_PATHCONV=1` to prevent MSYS/Git-Bash from
+converting POSIX-style paths (`/repo.feature`) passed to native Windows programs
+(`jq --arg`, `wt -C`) into Windows paths (`C:/Program Files/Git/repo.feature`).
 
 ## Installation
 

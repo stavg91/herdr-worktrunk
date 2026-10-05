@@ -38,7 +38,7 @@ mainpath=$(printf '%s\n' "$wtitems" | worktrunk_main_worktree_path)
 # refuses worktrees with untracked files without -f — so run it interactively and let
 # worktrunk gate the destructive bits. --foreground keeps the pane until it's done.
 # -C runs it from the main worktree (see worktrunk_main_worktree_path).
-if ! wt remove --foreground -C "$mainpath" "$name"; then
+if ! "$(worktrunk_bin)" remove --foreground -C "$mainpath" "$name"; then
   printf '\n\033[31m%s\033[0m press any key to close' "wt remove failed (see above)."; read -n1
   exit 0
 fi

@@ -58,9 +58,9 @@ if command -v fzf >/dev/null; then
       # on the full refname (refs/remotes/origin/HEAD), then emit the short name.
       git for-each-ref --format='%(refname) %(refname:short)' "${branch_refs[@]}" 2>/dev/null \
         | awk '$1 !~ /\/HEAD$/ {print $2}'
-      wt list --format=json 2>/dev/null \
+      "$(worktrunk_bin)" list --format=json 2>/dev/null \
         | worktrunk_list_items \
-        | jq -r 'select(.branch != null) | .branch'
+        | jq -r 'select(.branch != null) | .branch' | tr -d '\r'
     } | awk '!seen[$0]++ { print; fflush() }' \
       | fzf --print-query --reverse --info=inline "${WORKTRUNK_FZF_LAYOUT[@]}" \
             --bind=alt-enter:print-query \
@@ -109,8 +109,8 @@ if [[ $open_mode == tab ]]; then
   # cd itself into the worktree (through worktrunk's shell integration), and the
   # hook output then lands in the pane the user keeps, not in this transient one.
   tab_json=$("$herdr" tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$PWD" --label "$name" --focus)
-  newpane=$(printf '%s\n' "$tab_json" | jq -r '.result.root_pane.pane_id // empty')
-  tab_id=$(printf '%s\n' "$tab_json" | jq -r '.result.root_pane.tab_id // empty')
+  newpane=$(printf '%s\n' "$tab_json" | jq -r '.result.root_pane.pane_id // empty' | tr -d '\r')
+  tab_id=$(printf '%s\n' "$tab_json" | jq -r '.result.root_pane.tab_id // empty' | tr -d '\r')
   [[ -z $newpane || -z $tab_id ]] && { printf '\033[31m%s\033[0m\n' "failed to open worktree tab"; sleep 2; exit 1; }
 
   # The line is typed into that tab's own shell, so it is generated in that shell's
@@ -128,7 +128,7 @@ fi
 
 # Native workspace mode: let worktrunk create/switch the checkout and run hooks,
 # then register the resulting existing checkout through herdr's worktree API.
-if ! result=$(wt "${wtargs[@]}" --no-cd --format=json); then
+if ! result=$("$(worktrunk_bin)" "${wtargs[@]}" --no-cd --format=json); then
   printf '\n\033[31m%s\033[0m press any key to close' "wt switch failed (see above)."
   read -n1
   exit 1
@@ -136,15 +136,15 @@ fi
 
 # $name may be a worktrunk shortcut rather than the actual branch: label with what
 # it resolved to (see worktrunk_switch_label).
-branch=$(printf '%s\n' "$result" | jq -r '.branch // empty' 2>/dev/null)
+branch=$(printf '%s\n' "$result" | jq -r '.branch // empty' 2>/dev/null | tr -d '\r')
 label=$(worktrunk_switch_label "$branch" "$name")
 
-wtpath=$(printf '%s\n' "$result" | jq -r '.path // empty' 2>/dev/null)
+wtpath=$(printf '%s\n' "$result" | jq -r '.path // empty' 2>/dev/null | tr -d '\r')
 if [[ -z $wtpath ]]; then
-  wtpath=$(wt list --format=json 2>/dev/null \
+  wtpath=$("$(worktrunk_bin)" list --format=json 2>/dev/null \
     | worktrunk_list_items \
     | jq -r --arg b "$name" 'select(.branch == $b and .kind == "worktree") | .path' \
-    | head -n1)
+    | head -n1 | tr -d '\r')
 fi
 if [[ -z $wtpath ]]; then
   printf '\033[31m%s\033[0m\n' "worktrunk returned no worktree path for: $name"
@@ -155,7 +155,7 @@ fi
 # Only a worktree worktrunk just created has hook output worth reading; a switch to
 # an existing one opens straight away. Hold before the workspace opens below — it
 # takes the focus with it.
-if [[ $(printf '%s\n' "$result" | jq -r '.action // empty' 2>/dev/null) == created ]]; then
+if [[ $(printf '%s\n' "$result" | jq -r '.action // empty' 2>/dev/null | tr -d '\r') == created ]]; then
   worktrunk_hold_pane create "created worktree $label."
 fi
 
@@ -165,15 +165,15 @@ fi
 # workspace, which `worktree open` rejects. Resolve the repository root instead;
 # Herdr reuses its parent workspace or creates one when absent.
 source_json=$("$herdr" worktree list --cwd "$PWD" --json 2>/dev/null)
-repo_root=$(printf '%s\n' "$source_json" | jq -r '.result.source.repo_root')
+repo_root=$(printf '%s\n' "$source_json" | jq -r '.result.source.repo_root' | tr -d '\r')
 
 # When no workspace covers the root yet, herdr's own auto-created label falls back
 # to the checkout directory's basename verbatim (e.g. "repo.git" for a bare repo)
 # rather than the repository's name. Pre-create it labeled correctly so the
 # `worktree open` below reuses it as-is instead of defaulting the label.
-root_workspace_id=$(printf '%s\n' "$source_json" | jq -r '.result.source.source_workspace_id // empty')
+root_workspace_id=$(printf '%s\n' "$source_json" | jq -r '.result.source.source_workspace_id // empty' | tr -d '\r')
 if [[ -z $root_workspace_id ]]; then
-  repo_label=$(printf '%s\n' "$source_json" | jq -r '.result.source.repo_name // empty')
+  repo_label=$(printf '%s\n' "$source_json" | jq -r '.result.source.repo_name // empty' | tr -d '\r')
   repo_label=${repo_label%.git}
   [[ -n $repo_label ]] && "$herdr" workspace create --cwd "$repo_root" --label "$repo_label" --no-focus >/dev/null
 fi

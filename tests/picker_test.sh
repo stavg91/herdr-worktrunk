@@ -89,6 +89,7 @@ run_picker() {
   (
     cd "$work_dir/repo"
     PATH="$stub_dir:$PATH" \
+    RUNTIME_WORKTRUNK_BIN="$stub_dir/wt" \
     STUB_DIR="$stub_dir" \
     REPO_CWD="$work_dir/repo" \
     FZF_STUB_OUT="$out" \

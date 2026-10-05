@@ -44,6 +44,7 @@ EOF
 chmod +x "$stub_dir"/wt "$stub_dir"/fzf "$stub_dir"/herdr
 
 export PATH="$stub_dir:$PATH"
+export RUNTIME_WORKTRUNK_BIN="$stub_dir/wt"
 export WT_STUB_LOG="$stub_dir/wt.log"
 export HERDR_STUB_LOG="$stub_dir/herdr.log"
 pane_out="$stub_dir/pane.out"

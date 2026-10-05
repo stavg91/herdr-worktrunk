@@ -12,7 +12,7 @@ plugin_root=${HERDR_PLUGIN_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && 
 # shellcheck source=./config.sh
 source "$plugin_root/config.sh"
 
-cwd=$(jq -r '.workspace_cwd // .focused_pane_cwd' <<<"$HERDR_PLUGIN_CONTEXT_JSON")
+cwd=$(jq -r '.workspace_cwd // .focused_pane_cwd' <<<"$HERDR_PLUGIN_CONTEXT_JSON" | tr -d '\r')
 herdr=${HERDR_BIN_PATH:-herdr}
 
 args=(plugin pane open

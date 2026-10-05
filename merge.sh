@@ -69,7 +69,7 @@ mainpath=$(printf '%s\n' "$wtitems" | worktrunk_main_worktree_path)
 # wt merge stages, commits, squashes and rebases per its flags, runs pre-commit and
 # pre-merge hooks, and stops on conflicts — so run it interactively and let
 # worktrunk gate all of that.
-if ! wt merge --no-remove -C "$wtpath" "${merge_flags[@]}"; then
+if ! "$(worktrunk_bin)" merge --no-remove -C "$wtpath" "${merge_flags[@]}"; then
   printf '\n\033[31m%s\033[0m press any key to close' "wt merge failed (see above)."; read -n1
   exit 0
 fi
@@ -77,7 +77,7 @@ fi
 # The branch is merged now, so wt remove deletes it without -D. --foreground blocks
 # until the worktree is really gone, so closing its workspace can't outrun it. -C
 # runs it from the main worktree (see worktrunk_main_worktree_path).
-if ! wt remove --foreground -C "$mainpath" "$name"; then
+if ! "$(worktrunk_bin)" remove --foreground -C "$mainpath" "$name"; then
   printf '\n\033[31m%s\033[0m press any key to close' \
     "merged, but wt remove failed (see above)."; read -n1
   exit 0

@@ -2,6 +2,15 @@
 
 # Print the configured worktree presentation mode. Native workspace mode is the
 # default; set open_mode = "tab" to keep the original tab-based behavior.
+
+# MSYS/Git-Bash converts POSIX-style paths (/repo.feature) passed as arguments
+# to native Windows programs (jq, wt, herdr) into Windows paths
+# (C:/Program Files/Git/repo.feature). jq --arg values like /repo.feature become
+# unusable, and wt -C /path would receive a mangled path. MSYS_NO_PATHCONV=1
+# disables that conversion for this script and its children. git and cp are MSYS
+# programs and are unaffected. Sourced by every action script.
+export MSYS_NO_PATHCONV=1
+
 worktrunk_config_value() {
   local key=$1 config_file
 

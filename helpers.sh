@@ -1,5 +1,73 @@
 #!/usr/bin/env bash
 
+# MSYS/Git-Bash converts POSIX-style paths (/repo.feature) passed as arguments
+# to native Windows programs (jq, wt, herdr) into Windows paths
+# (C:/Program Files/Git/repo.feature). jq --arg values like /repo.feature become
+# unusable, and wt -C /path would receive a mangled path. MSYS_NO_PATHCONV=1
+# disables that conversion for this script and its children. git and cp are MSYS
+# programs and are unaffected. Set here (helpers.sh) and in config.sh so every
+# script that sources either is covered, including tests that source helpers.sh
+# directly without config.sh.
+export MSYS_NO_PATHCONV=1
+
+# Resolve the real worktrunk binary (`wt`). On Windows, bare `wt` on PATH resolves
+# to the Windows Terminal app-execution alias (wt.exe in WindowsApps), which
+# shadows the real worktrunk binary. Every direct `wt` call in the plugin goes
+# through this resolver so it finds worktrunk, not Windows Terminal.
+#
+# Search order:
+#   1. RUNTIME_WORKTRUNK_BIN env var (absolute path to the binary).
+#   2. Known install locations (winget package dir, WinGet Links, Program Files).
+#   3. `wt` on PATH, but only if it is NOT the Windows Terminal alias — detected
+#      by `wt --version` printing `wt v` (worktrunk prints `wt v<version>`;
+#      Windows Terminal prints nothing and exits 0 or opens a window).
+#
+# Tab mode is the exception: the line typed into the user's interactive shell
+# stays bare `wt` so worktrunk's own shell integration (the `wt` function, not
+# the binary) runs and cd's the shell into the worktree. That path does not call
+# this resolver.
+worktrunk_bin() {
+  local bin
+
+  # 1. Explicit override.
+  if [[ -n ${RUNTIME_WORKTRUNK_BIN:-} ]] && command -v "$RUNTIME_WORKTRUNK_BIN" >/dev/null 2>&1; then
+    printf '%s\n' "$RUNTIME_WORKTRUNK_BIN"
+    return 0
+  fi
+
+  # 2. Known install locations (Windows first, then Unix).
+  local candidate
+  for candidate in \
+    "$LOCALAPPDATA/Microsoft/WinGet/Packages/max-sixty.worktrunk_Microsoft.Winget.Source_8wekyb3d8bbwe/wt.exe" \
+    "$LOCALAPPDATA/Microsoft/WinGet/Packages/max-sixty.worktrunk_Microsoft.Winget.Source_8wekyb3d8bbwe/wt" \
+    "$LOCALAPPDATA/Microsoft/WinGet/Links/wt.exe" \
+    "$LOCALAPPDATA/Microsoft/WinGet/Links/wt" \
+    "/usr/local/bin/wt" \
+    "/opt/homebrew/bin/wt" \
+    "$HOME/.cargo/bin/wt"; do
+    if [[ -n $candidate && -x $candidate ]] && "$candidate" --version >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  # 3. `wt` on PATH, but skip the Windows Terminal alias. Windows Terminal's
+  #    wt.exe prints nothing and exits 0 (or opens a window); worktrunk prints
+  #    `wt v<version>`. `--version` is safe: both accept it without side effects.
+  if command -v wt >/dev/null 2>&1; then
+    bin=$(command -v wt)
+    if "$bin" --version >/dev/null 2>&1; then
+      printf '%s\n' "$bin"
+      return 0
+    fi
+  fi
+
+  # Not found. Print `wt` so the caller's error message reads naturally and the
+  # command attempt produces a clear "command not found".
+  printf '%s\n' wt
+  return 1
+}
+
 # True when NAME is a token worktrunk resolves itself — a branch shortcut
 # (^ default, - previous) or `:` syntax (pr:N, mr:N, or a PR/MR URL). Git branch
 # names can't be these bare symbols or contain `:`, so these must be passed to
@@ -71,7 +139,7 @@ worktrunk_list_items() {
     else
       error("unsupported worktrunk list JSON schema")
     end
-  '
+  ' | tr -d '\r'
 }
 
 # Print the name of the shell running in herdr pane PANE_ID (e.g. `zsh`, `nu`),
@@ -92,12 +160,18 @@ worktrunk_pane_shell() {
         .result.process_info as $p
         | ($p.foreground_processes // []) as $fg
         | ([$fg[] | select(.pid == $p.shell_pid) | (.name // .argv0 // empty)][0] // ""),
-          ($p.shell_pid // "" | tostring)' 2>/dev/null
+          ($p.shell_pid // "" | tostring)' 2>/dev/null | tr -d '\r'
     ) || true
     [[ -n $name || -n $shell_pid ]] && break
   done
   if [[ -z $name && -n $shell_pid ]]; then
-    name=$(ps -o comm= -p "$shell_pid" 2>/dev/null || true)
+    # ps -o comm= is unavailable on MSYS/Git-Bash (its ps has no -o). Fall back to
+    # $SHELL there; the jq parse above is the primary path and usually resolves it.
+    if ps -o comm= -p "$shell_pid" >/dev/null 2>&1; then
+      name=$(ps -o comm= -p "$shell_pid" 2>/dev/null || true)
+    else
+      name=${SHELL:-}
+    fi
   fi
   [[ -z $name ]] && name=${SHELL:-}
   name=${name##*/}   # /opt/homebrew/bin/nu → nu
